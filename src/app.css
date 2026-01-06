@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+
+/* CSS Variables for theme system */
+:root {
+  /* Light theme colors */
+  --color-primary: 59 130 246;
+  --color-secondary: 100 116 139;
+  --color-background: 249 250 251;
+  --color-surface: 255 255 255;
+  --color-text: 17 24 39;
+  --color-text-muted: 107 114 128;
+  --color-border: 229 231 235;
+  --color-accent: 59 130 246;
+  
+  /* Transitions */
+  --transition-colors: color 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+/* Dark theme colors */
+.dark {
+  --color-primary: 96 165 250;
+  --color-secondary: 156 163 175;
+  --color-background: 17 24 39;
+  --color-surface: 31 41 55;
+  --color-text: 249 250 251;
+  --color-text-muted: 156 163 175;
+  --color-border: 75 85 99;
+  --color-accent: 96 165 250;
+}
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-text));
+  transition: var(--transition-colors);
+  min-height: 100vh;
+}
+
+/* 确保深色主题下的滚动条样式 */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgb(31 41 55);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgb(75 85 99);
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgb(107 114 128);
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 2px;
+}
+
+/* Animation utilities */
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    transform: translateY(10px); 
+    opacity: 0; 
+  }
+  to { 
+    transform: translateY(0); 
+    opacity: 1; 
+  }
+}
+
+/* Loading spinner */
+.spinner {
+  border: 2px solid rgb(var(--color-border));
+  border-top: 2px solid rgb(var(--color-accent));
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 确保Flowbite组件在深色主题下正确显示 */
+.dark .flowbite-modal {
+  background-color: rgb(31 41 55);
+  color: rgb(249 250 251);
+}
+
+.dark .flowbite-card {
+  background-color: rgb(31 41 55);
+  border-color: rgb(75 85 99);
+}
+
+/* 修复可能的主题切换闪烁问题 */
+html.dark {
+  color-scheme: dark;
+}
+
+html:not(.dark) {
+  color-scheme: light;
+}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			// 立即应用主题，避免闪烁
+			(function() {
+				try {
+					const theme = localStorage.getItem('ai-studio-theme') || 'dark'; // 默认深色主题
+					const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					const shouldUseDark = theme === 'dark' || (theme === 'system' && systemPrefersDark);
+					
+					if (shouldUseDark) {
+						document.documentElement.classList.add('dark');
+						document.documentElement.style.colorScheme = 'dark';
+					} else {
+						document.documentElement.classList.remove('dark');
+						document.documentElement.style.colorScheme = 'light';
+					}
+				} catch (e) {
+					// 如果localStorage不可用，默认使用深色主题
+					document.documentElement.classList.add('dark');
+					document.documentElement.style.colorScheme = 'dark';
+				}
+			})();
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
