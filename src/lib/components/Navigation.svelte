@@ -12,7 +12,8 @@
 			icon: 'play-outline',
 			description: '模型测试和交互'
 		},
-		{ href: '/dashboard', label: '仪表板', icon: 'chart-outline', description: 'API统计和监控' }
+		{ href: '/dashboard', label: '仪表板', icon: 'chart-outline', description: 'API统计和监控' },
+		{ href: '/monitor', label: 'Monitor', icon: 'eye-outline', description: '实时连接监控' }
 	];
 
 	let sidebarOpen = $state(false);

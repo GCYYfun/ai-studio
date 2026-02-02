@@ -13,6 +13,7 @@ export * from './http';
 // Domain-specific types
 export * from './dashboard';
 export * from './playground';
+export * from './monitor';
 
 // Error handling types
 export * from './errors';
