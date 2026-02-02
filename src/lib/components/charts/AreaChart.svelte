@@ -2,7 +2,7 @@
 	import type { ApexOptions } from 'apexcharts';
 	import { Chart } from '@flowbite-svelte-plugins/chart';
 	import { Card, Heading } from 'flowbite-svelte';
-	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
+	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
 	
 	interface Props {
 		title?: string;

@@ -10,9 +10,4 @@ declare global {
 	}
 }
 
-// Global type declarations for AI Studio Web
-declare module '$lib/types' {
-	export * from '$lib/types/index.js';
-}
-
-export {};
+export { };

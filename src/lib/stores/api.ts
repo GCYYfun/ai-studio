@@ -1,25 +1,18 @@
 import { writable, derived, get } from 'svelte/store';
-import { apiService } from '$lib/services/apiService';
-import type { 
-	DashboardData, 
-	APIStats, 
-	ModelTest, 
+import { dashboardService } from '$lib/services/dashboard/DashboardService';
+import { playgroundService } from '$lib/services/playground/PlaygroundService';
+import { apiConnection } from './connection';
+import type {
+	DashboardData,
+	APIStats,
+	ModelTest,
 	PlaygroundSession,
 	AsyncState,
-	APIError 
+	APIError
 } from '$lib/types';
 
 /**
- * API连接状态
- */
-export interface APIConnectionState {
-	connected: boolean;
-	lastCheck: Date | null;
-	error: string | null;
-}
-
-/**
- * 仪表板数据状态
+ * Dashboard state
  */
 export interface DashboardState extends AsyncState<DashboardData> {
 	lastUpdated: Date | null;
@@ -45,51 +38,8 @@ export interface PlaygroundState {
 	currentTest: AsyncState<ModelTest>;
 }
 
-// API连接状态store
-function createAPIConnectionStore() {
-	const { subscribe, set, update } = writable<APIConnectionState>({
-		connected: false,
-		lastCheck: null,
-		error: null
-	});
 
-	return {
-		subscribe,
-		
-		async checkConnection(): Promise<boolean> {
-			try {
-				const response = await apiService.healthCheck();
-				const isConnected = response.success;
-				
-				set({
-					connected: isConnected,
-					lastCheck: new Date(),
-					error: isConnected ? null : response.error || 'Connection failed'
-				});
-				
-				return isConnected;
-			} catch (error) {
-				set({
-					connected: false,
-					lastCheck: new Date(),
-					error: error instanceof Error ? error.message : 'Unknown error'
-				});
-				return false;
-			}
-		},
-
-		setConnected(connected: boolean, error?: string) {
-			update(state => ({
-				...state,
-				connected,
-				error: error || null,
-				lastCheck: new Date()
-			}));
-		}
-	};
-}
-
-// 仪表板数据store
+// Dashboard store
 function createDashboardStore() {
 	const { subscribe, set, update } = writable<DashboardState>({
 		data: null,
@@ -109,8 +59,8 @@ function createDashboardStore() {
 			update(state => ({ ...state, loading: true, error: null }));
 
 			try {
-				const response = await apiService.getDashboardStats(timeRange, !forceRefresh);
-				
+				const response = await dashboardService.getStats(timeRange, !forceRefresh);
+
 				if (response.success && response.data) {
 					update(state => ({
 						...state,
@@ -160,7 +110,7 @@ function createDashboardStore() {
 
 		setRefreshInterval(interval: number): void {
 			update(state => ({ ...state, refreshInterval: interval }));
-			
+
 			// 重启自动刷新以应用新间隔
 			if (get({ subscribe }).autoRefresh) {
 				this.stopAutoRefresh();
@@ -169,7 +119,7 @@ function createDashboardStore() {
 		},
 
 		invalidateCache(): void {
-			apiService.invalidateCache('dashboard');
+			dashboardService.clearCache();
 		}
 	};
 }
@@ -193,8 +143,8 @@ function createRealtimeStatsStore() {
 			update(state => ({ ...state, loading: true, error: null }));
 
 			try {
-				const response = await apiService.getRealtimeStats(!forceRefresh);
-				
+				const response = await dashboardService.getRealtimeStats(!forceRefresh);
+
 				if (response.success && response.data) {
 					update(state => ({
 						...state,
@@ -263,8 +213,8 @@ function createPlaygroundStore() {
 			}));
 
 			try {
-				const response = await apiService.getPlaygroundSessions();
-				
+				const response = await playgroundService.getSessions();
+
 				if (response.success && response.data) {
 					update(state => ({
 						...state,
@@ -298,18 +248,18 @@ function createPlaygroundStore() {
 
 		async createSession(name: string, model: string): Promise<boolean> {
 			try {
-				const response = await apiService.createSession(name, model);
-				
+				const response = await playgroundService.createSession(name, model);
+
 				if (response.success && response.data) {
 					// 重新加载会话列表
 					await this.loadSessions();
-					
+
 					// 设置为当前会话
 					update(state => ({
 						...state,
 						currentSession: response.data
 					}));
-					
+
 					return true;
 				}
 				return false;
@@ -338,8 +288,8 @@ function createPlaygroundStore() {
 			}));
 
 			try {
-				const response = await apiService.getTestHistory(sessionId);
-				
+				const response = await playgroundService.getHistory(sessionId);
+
 				if (response.success && response.data) {
 					update(state => ({
 						...state,
@@ -372,8 +322,8 @@ function createPlaygroundStore() {
 		},
 
 		async submitTest(
-			input: string, 
-			parameters: Record<string, any>, 
+			input: string,
+			parameters: Record<string, any>,
 			model?: string
 		): Promise<boolean> {
 			update(state => ({
@@ -382,8 +332,8 @@ function createPlaygroundStore() {
 			}));
 
 			try {
-				const response = await apiService.submitModelTest(input, parameters, model);
-				
+				const response = await playgroundService.submitTest(input, parameters, model);
+
 				if (response.success && response.data) {
 					update(state => ({
 						...state,
@@ -437,7 +387,6 @@ function createPlaygroundStore() {
 }
 
 // 创建store实例
-export const apiConnection = createAPIConnectionStore();
 export const dashboardStore = createDashboardStore();
 export const realtimeStatsStore = createRealtimeStatsStore();
 export const playgroundStore = createPlaygroundStore();
@@ -460,15 +409,18 @@ export async function initializeAPI(): Promise<void> {
 	try {
 		// 检查API连接
 		const connected = await apiConnection.checkConnection();
-		
+
 		if (connected) {
 			// 预加载数据
-			await apiService.preloadData();
-			
+			await Promise.all([
+				dashboardService.preloadData(),
+				playgroundService.preloadData()
+			]);
+
 			// 启动自动刷新
 			dashboardStore.startAutoRefresh();
 			realtimeStatsStore.startAutoRefresh();
-			
+
 			console.info('API initialized successfully');
 		} else {
 			console.warn('API connection failed during initialization');

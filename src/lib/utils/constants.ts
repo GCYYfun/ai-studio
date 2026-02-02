@@ -6,14 +6,6 @@ export const APP_VERSION = '1.0.0';
 export const THEME_STORAGE_KEY = 'ai-studio-theme';
 export const DEFAULT_THEME = 'system';
 
-// API constants
-export const API_BASE_URL = process.env.NODE_ENV === 'production' 
-	? 'http://ec2-3-101-72-10.us-west-1.compute.amazonaws.com:8000'
-	: 'http://ec2-3-101-72-10.us-west-1.compute.amazonaws.com:8000'; // 'localhost:8000';
-
-export const API_TIMEOUT = 120000; // 120 seconds (2 minutes) - increased for LLM responses
-export const API_RETRY_ATTEMPTS = 3;
-export const API_RETRY_DELAY = 1000; // 1 second
 
 // Dashboard constants
 export const DASHBOARD_REFRESH_INTERVAL = 30000; // 30 seconds

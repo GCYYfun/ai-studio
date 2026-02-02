@@ -1,25 +1,24 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { ui } from '$lib/ui';
-	const { Card, Heading, P, Badge, Alert } = ui;
+	import { Card, Heading, P, Badge, Alert } from 'flowbite-svelte';
 	import MetricGrid from '$lib/components/dashboard/MetricGrid.svelte';
-	import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
-	import TimeRangeSelector from '$lib/components/ui/TimeRangeSelector.svelte';
-	import DateRangePicker from '$lib/components/ui/DateRangePicker.svelte';
-	import ApiKeyInput from '$lib/components/ui/ApiKeyInput.svelte';
+	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
+	import TimeRangeSelector from '$lib/components/common/TimeRangeSelector.svelte';
+	import DateRangePicker from '$lib/components/common/DateRangePicker.svelte';
+	import ApiKeyInput from '$lib/components/common/ApiKeyInput.svelte';
 	import { LineChart, BarChart, PieChart } from '$lib/components/charts';
 	import type { ChartSeries } from '$lib/components/charts';
 	import { formatNumber } from '$lib/utils/formatters';
 	import { getTimeRangeFromString } from '$lib/utils/timeFilters';
-	import { statsApi, type UsageStatistics, type KeyStatistics } from '$lib/services/statisticsApi';
+	import { statsApi, type UsageStatistics, type KeyStatistics } from '$lib/services/dashboard';
 	import type { PageData } from './$types';
-	
+
 	interface Props {
 		data: PageData;
 	}
-	
+
 	let { data }: Props = $props();
-	
+
 	// 状态管理
 	let apiKey = $state('');
 	let isConnected = $state(false);
@@ -31,7 +30,7 @@
 		start: new Date(Date.now() - 24 * 60 * 60 * 1000),
 		end: new Date()
 	});
-	
+
 	// 数据状态
 	let myStats = $state<UsageStatistics | null>(null);
 	let overviewStats = $state<UsageStatistics | null>(null);
@@ -39,10 +38,10 @@
 	let dataLoading = $state(false);
 	let dataError = $state('');
 	let lastUpdated = $state<Date | null>(null);
-	
+
 	// 自动刷新
 	let refreshTimer: NodeJS.Timeout | null = null;
-	
+
 	// 从本地存储恢复 API Key
 	onMount(() => {
 		const savedApiKey = localStorage.getItem('ai-studio-api-key');
@@ -50,49 +49,44 @@
 			apiKey = savedApiKey;
 			connectToApi(savedApiKey);
 		}
-		
+
 		// 初始化时间范围
 		selectedTimeRange = (data && data.timeRange) || '24h';
 	});
-	
+
 	onDestroy(() => {
 		if (refreshTimer) {
 			clearInterval(refreshTimer);
 		}
 	});
-	
+
 	// 连接到 API
 	async function connectToApi(key: string) {
 		loading = true;
 		connectionError = '';
-		
+
 		try {
-			console.log('Connecting to API with key:', key ? `${key.substring(0, 8)}...` : 'None');
-			
 			// 设置 API Key
 			statsApi.setApiKey(key);
-			
+
 			// 检查连接和权限
-			console.log('Checking admin status...');
+
 			const adminStatus = await statsApi.checkAdmin();
-			console.log('Admin status:', adminStatus);
-			
-			console.log('Performing health check...');
+
 			const healthResponse = await statsApi.healthCheck();
-			console.log('Health check response:', healthResponse);
-			
+
 			if (healthResponse.success) {
 				isConnected = true;
 				isAdmin = adminStatus;
 				apiKey = key;
-				
+
 				// 保存到本地存储
 				localStorage.setItem('ai-studio-api-key', key);
-				
+
 				// 加载初始数据
-				console.log('Loading initial data...');
+
 				await loadData();
-				
+
 				// 启动自动刷新
 				startAutoRefresh();
 			} else {
@@ -107,7 +101,7 @@
 			loading = false;
 		}
 	}
-	
+
 	// 断开连接
 	function disconnect() {
 		isConnected = false;
@@ -117,68 +111,57 @@
 		overviewStats = null;
 		allKeysStats = [];
 		connectionError = '';
-		
+
 		// 清除本地存储
 		localStorage.removeItem('ai-studio-api-key');
-		
+
 		// 停止自动刷新
 		if (refreshTimer) {
 			clearInterval(refreshTimer);
 			refreshTimer = null;
 		}
 	}
-	
+
 	// 加载数据
 	async function loadData() {
 		if (!isConnected) return;
-		
+
 		dataLoading = true;
 		dataError = '';
-		
+
 		try {
-			console.log('Loading data...');
-			console.log('Selected time range:', selectedTimeRange);
-			console.log('API Key:', apiKey ? `${apiKey.substring(0, 8)}...` : 'None');
-			
 			// 默认不传时间参数，让后台返回所有数据
 			// 只有在用户明确选择了特定时间范围且不是默认24h时才传递参数
 			let params: any = {};
-			
+
 			if (selectedTimeRange !== '24h') {
 				const timeRange = getTimeRangeFromString(selectedTimeRange);
 				params = {
 					start_date: timeRange.start.toISOString(),
 					end_date: timeRange.end.toISOString()
 				};
-				console.log('Using time range params:', params);
-				console.log('Time range (local):', {
-					start: timeRange.start.toLocaleString('zh-CN'),
-					end: timeRange.end.toLocaleString('zh-CN')
-				});
-			} else {
-				console.log('Using default time range (no params)');
 			}
-			
+
 			// 并行加载数据
-			const myStatsPromise = statsApi.getMyStats(Object.keys(params).length > 0 ? params : undefined);
+			const myStatsPromise = statsApi.getMyStats(
+				Object.keys(params).length > 0 ? params : undefined
+			);
 			const promises: Promise<any>[] = [myStatsPromise];
-			
+
 			if (isAdmin) {
 				promises.push(
 					statsApi.getOverview(Object.keys(params).length > 0 ? params : undefined),
 					statsApi.getAllKeys(Object.keys(params).length > 0 ? params : undefined)
 				);
 			}
-			
+
 			const results = await Promise.allSettled(promises);
-			
+
 			// 处理我的统计
 			const myStatsResult = results[0];
-			console.log('My stats result:', myStatsResult);
-			
+
 			if (myStatsResult.status === 'fulfilled' && myStatsResult.value.success) {
 				myStats = myStatsResult.value.data;
-				console.log('My stats data:', myStats);
 			} else if (myStatsResult.status === 'fulfilled') {
 				console.error('My stats API error:', myStatsResult.value.error);
 				dataError = myStatsResult.value.error || '获取统计数据失败';
@@ -186,26 +169,24 @@
 				console.error('My stats promise rejected:', myStatsResult.reason);
 				dataError = '获取统计数据失败';
 			}
-			
+
 			// 处理管理员数据
 			if (isAdmin && results.length > 1) {
 				const overviewResult = results[1];
-				console.log('Overview result:', overviewResult);
+
 				if (overviewResult.status === 'fulfilled' && overviewResult.value.success) {
 					overviewStats = overviewResult.value.data;
-					console.log('Overview stats data:', overviewStats);
 				}
-				
+
 				if (results.length > 2) {
 					const allKeysResult = results[2];
-					console.log('All keys result:', allKeysResult);
+
 					if (allKeysResult.status === 'fulfilled' && allKeysResult.value.success) {
 						allKeysStats = allKeysResult.value.data || [];
-						console.log('All keys stats data:', allKeysStats);
 					}
 				}
 			}
-			
+
 			lastUpdated = new Date();
 		} catch (error) {
 			console.error('Load data error:', error);
@@ -214,53 +195,54 @@
 			dataLoading = false;
 		}
 	}
-	
+
 	// 启动自动刷新
 	function startAutoRefresh() {
 		if (refreshTimer) {
 			clearInterval(refreshTimer);
 		}
-		
+
 		refreshTimer = setInterval(() => {
 			if (isConnected) {
 				loadData();
 			}
 		}, 30000); // 30秒刷新一次
 	}
-	
+
 	// 处理时间范围变化
 	function handleTimeRangeChange(range: string) {
 		selectedTimeRange = range;
 		const url = new URL(window.location.href);
 		url.searchParams.set('range', range);
 		window.history.pushState({}, '', url);
-		
+
 		if (isConnected) {
 			loadData();
 		}
 	}
-	
+
 	// 处理自定义日期范围变化
 	function handleDateRangeChange(range: { start: Date; end: Date }) {
 		customDateRange = range;
 		// 可以根据自定义日期范围重新加载数据
 	}
-	
+
 	// 手动刷新数据
 	function refreshData() {
 		if (isConnected) {
 			loadData();
 		}
 	}
-	
+
 	// 计算指标数据
 	const metrics = $derived(() => {
 		if (!myStats) return [];
-		
-		const successRate = myStats.total_calls > 0 
-			? (myStats.successful_calls / myStats.total_calls * 100).toFixed(1)
-			: '0.0';
-		
+
+		const successRate =
+			myStats.total_calls > 0
+				? ((myStats.successful_calls / myStats.total_calls) * 100).toFixed(1)
+				: '0.0';
+
 		return [
 			{
 				title: 'API调用总数',
@@ -274,7 +256,7 @@
 				title: '成功率',
 				value: `${successRate}%`,
 				change: parseFloat(successRate) > 95 ? '+2.1%' : '-1.2%',
-				changeType: parseFloat(successRate) > 95 ? 'positive' as const : 'negative' as const,
+				changeType: parseFloat(successRate) > 95 ? ('positive' as const) : ('negative' as const),
 				description: '请求成功比例',
 				icon: 'check'
 			},
@@ -290,66 +272,71 @@
 				title: '总费用',
 				value: `¥${myStats.total_cost.toFixed(4)}`,
 				change: myStats.total_cost > 0.1 ? '+8.7%' : '+2.3%',
-				changeType: myStats.total_cost > 0.1 ? 'negative' as const : 'positive' as const,
+				changeType: myStats.total_cost > 0.1 ? ('negative' as const) : ('positive' as const),
 				description: '累计消费金额',
 				icon: 'money'
 			}
 		];
 	});
-	
+
 	// 系统健康状态
 	const systemHealth = $derived(() => {
 		if (!myStats) return [];
-		
-		const successRate = myStats.total_calls > 0 
-			? (myStats.successful_calls / myStats.total_calls * 100)
-			: 100;
-		
+
+		const successRate =
+			myStats.total_calls > 0 ? (myStats.successful_calls / myStats.total_calls) * 100 : 100;
+
 		return [
 			{
 				name: 'API服务器',
 				status: isConnected ? 'normal' : 'error',
-				badge: isConnected ? 'green' as const : 'red' as const,
+				badge: isConnected ? ('green' as const) : ('red' as const),
 				label: isConnected ? '正常' : '断开'
 			},
 			{
 				name: '成功率',
 				status: successRate > 95 ? 'normal' : successRate > 90 ? 'warning' : 'error',
-				badge: successRate > 95 ? 'green' as const : successRate > 90 ? 'yellow' as const : 'red' as const,
+				badge:
+					successRate > 95
+						? ('green' as const)
+						: successRate > 90
+							? ('yellow' as const)
+							: ('red' as const),
 				label: `${successRate.toFixed(1)}%`
 			},
 			{
 				name: '用户权限',
 				status: 'normal',
-				badge: isAdmin ? 'blue' as const : 'gray' as const,
+				badge: isAdmin ? ('blue' as const) : ('gray' as const),
 				label: isAdmin ? '管理员' : '普通用户'
 			}
 		];
 	});
-	
+
 	// 生成模拟图表数据（基于真实统计数据）
 	const chartData = $derived(() => {
 		if (!myStats) return null;
-		
+
 		// 基于真实数据生成趋势图
 		const days = 7;
 		const dailyAvg = Math.floor(myStats.total_calls / days);
 		const apiTrendData: ChartSeries[] = [
 			{
 				name: 'API调用次数',
-				data: Array.from({ length: days }, () => 
-					dailyAvg + Math.floor(Math.random() * dailyAvg * 0.3) - dailyAvg * 0.15
+				data: Array.from(
+					{ length: days },
+					() => dailyAvg + Math.floor(Math.random() * dailyAvg * 0.3) - dailyAvg * 0.15
 				),
 				color: '#3B82F6'
 			}
 		];
-		
+
 		const timeLabels = Array.from({ length: days }, (_, index) => {
 			const date = new Date();
 			date.setDate(date.getDate() - (days - 1 - index));
 			return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
 		});
-		
+
 		// Token使用分布
 		const tokenData: ChartSeries[] = [
 			{
@@ -358,11 +345,11 @@
 				color: '#10B981'
 			}
 		];
-		
+
 		// 调用类型分布（饼图）
 		const callTypeData = [myStats.stream_calls, myStats.non_stream_calls];
 		const callTypeLabels = ['流式调用', '非流式调用'];
-		
+
 		// 成功失败分布
 		const statusData: ChartSeries[] = [
 			{
@@ -371,7 +358,7 @@
 				color: '#F59E0B'
 			}
 		];
-		
+
 		return {
 			apiTrend: {
 				data: apiTrendData,
@@ -400,16 +387,12 @@
 
 <div class="space-y-6">
 	<!-- 页面标题和连接状态 -->
-	<div class="flex justify-between items-start">
+	<div class="flex items-start justify-between">
 		<div>
-			<Heading tag="h1" class="text-3xl font-bold">
-				API 统计仪表板
-			</Heading>
-			<P class="mt-2">
-				实时监控API使用情况、Token消耗和费用统计
-			</P>
+			<Heading tag="h1" class="text-3xl font-bold">API 统计仪表板</Heading>
+			<P class="mt-2">实时监控API使用情况、Token消耗和费用统计</P>
 		</div>
-		
+
 		{#if isConnected}
 			<div class="flex items-center space-x-4">
 				<!-- 时间范围选择器 -->
@@ -418,17 +401,17 @@
 					onchange={handleTimeRangeChange}
 					disabled={dataLoading}
 				/>
-				
+
 				<!-- 自定义日期范围选择器 -->
 				<DateRangePicker
 					value={customDateRange}
 					onchange={handleDateRangeChange}
 					disabled={dataLoading}
 				/>
-				
+
 				<!-- 刷新按钮 -->
 				<button
-					class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors"
+					class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
 					onclick={refreshData}
 					disabled={dataLoading}
 				>
@@ -437,10 +420,10 @@
 					{/if}
 					刷新
 				</button>
-				
+
 				<!-- 断开连接按钮 -->
 				<button
-					class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm font-medium transition-colors"
+					class="rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700"
 					onclick={disconnect}
 				>
 					断开连接
@@ -451,24 +434,20 @@
 
 	{#if !isConnected}
 		<!-- API Key 输入界面 -->
-		<Card class="max-w-2xl mx-auto">
-			<div class="text-center mb-6">
-				<Heading tag="h2" class="text-xl font-semibold mb-2">
-					连接到统计服务
-				</Heading>
-				<P class="text-gray-600 dark:text-gray-400">
-					请输入您的 API Key 以查看使用统计
-				</P>
+		<Card class="mx-auto max-w-2xl">
+			<div class="mb-6 text-center">
+				<Heading tag="h2" class="mb-2 text-xl font-semibold">连接到统计服务</Heading>
+				<P class="text-gray-600 dark:text-gray-400">请输入您的 API Key 以查看使用统计</P>
 			</div>
-			
+
 			<ApiKeyInput
 				value={apiKey}
-				onchange={(key) => apiKey = key}
+				onchange={(key) => (apiKey = key)}
 				onsubmit={connectToApi}
 				{loading}
 				error={connectionError}
 			/>
-			
+
 			<!-- <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
 				<h3 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
 					服务信息
@@ -482,17 +461,26 @@
 		</Card>
 	{:else}
 		<!-- 连接成功后的仪表板内容 -->
-		
+
 		<!-- 连接状态提示 -->
-		<Alert color="green" class="border-green-200 dark:border-green-600 bg-green-50 dark:bg-green-900/10">
+		<Alert
+			color="green"
+			class="border-green-200 bg-green-50 dark:border-green-600 dark:bg-green-900/10"
+		>
 			<div class="flex items-center">
-				<svg class="w-5 h-5 text-green-500 dark:text-green-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+				<svg
+					class="mr-3 h-5 w-5 text-green-500 dark:text-green-400"
+					fill="currentColor"
+					viewBox="0 0 20 20"
+				>
+					<path
+						fill-rule="evenodd"
+						d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+						clip-rule="evenodd"
+					/>
 				</svg>
 				<div>
-					<h3 class="text-sm font-medium text-green-800 dark:text-white">
-						已连接到统计服务
-					</h3>
+					<h3 class="text-sm font-medium text-green-800 dark:text-white">已连接到统计服务</h3>
 					<div class="mt-1 text-sm text-green-700 dark:text-gray-300">
 						<p>权限: {isAdmin ? '管理员' : '普通用户'} | API Key: {apiKey.substring(0, 8)}...</p>
 					</div>
@@ -502,17 +490,23 @@
 
 		<!-- 数据加载错误提示 -->
 		{#if dataError}
-			<Alert color="red" class="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
+			<Alert color="red" class="border-red-200 bg-red-50 dark:border-red-700 dark:bg-red-900/20">
 				<div class="flex">
 					<div class="flex-shrink-0">
-						<svg class="h-5 w-5 text-red-500 dark:text-red-400" viewBox="0 0 20 20" fill="currentColor">
-							<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+						<svg
+							class="h-5 w-5 text-red-500 dark:text-red-400"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+						>
+							<path
+								fill-rule="evenodd"
+								d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+								clip-rule="evenodd"
+							/>
 						</svg>
 					</div>
 					<div class="ml-3">
-						<h3 class="text-sm font-medium text-red-800 dark:text-red-100">
-							数据加载失败
-						</h3>
+						<h3 class="text-sm font-medium text-red-800 dark:text-red-100">数据加载失败</h3>
 						<div class="mt-2 text-sm text-red-700 dark:text-red-200">
 							<p>{dataError}</p>
 						</div>
@@ -523,17 +517,13 @@
 
 		<!-- 数据加载状态 -->
 		{#if dataLoading && !myStats}
-			<div class="flex justify-center items-center py-12">
+			<div class="flex items-center justify-center py-12">
 				<LoadingSpinner size="lg" />
 				<span class="ml-3 text-gray-600 dark:text-gray-400">加载统计数据...</span>
 			</div>
 		{:else if myStats}
 			<!-- 关键指标 -->
-			<MetricGrid 
-				metrics={metrics()} 
-				loading={dataLoading}
-				error={dataError || undefined}
-			/>
+			<MetricGrid metrics={metrics()} loading={dataLoading} error={dataError || undefined} />
 
 			<!-- 调试信息
 			{#if myStats}
@@ -566,60 +556,78 @@
 			{/if} -->
 
 			<!-- 详细统计区域 -->
-			<div class="grid lg:grid-cols-3 gap-6">
+			<div class="grid gap-6 lg:grid-cols-3">
 				<!-- 我的统计概览 -->
 				<Card>
-					<Heading tag="h3" class="text-lg font-semibold mb-4">我的统计</Heading>
+					<Heading tag="h3" class="mb-4 text-lg font-semibold">我的统计</Heading>
 					<div class="space-y-3">
 						<div class="flex justify-between">
 							<span class="text-sm text-gray-600 dark:text-gray-400">总调用次数</span>
-							<span class="font-medium text-gray-900 dark:text-gray-100">{formatNumber(myStats.total_calls)}</span>
+							<span class="font-medium text-gray-900 dark:text-gray-100"
+								>{formatNumber(myStats.total_calls)}</span
+							>
 						</div>
 						<div class="flex justify-between">
 							<span class="text-sm text-gray-600 dark:text-gray-400">成功调用</span>
-							<span class="font-medium text-green-600 dark:text-green-400">{formatNumber(myStats.successful_calls)}</span>
+							<span class="font-medium text-green-600 dark:text-green-400"
+								>{formatNumber(myStats.successful_calls)}</span
+							>
 						</div>
 						<div class="flex justify-between">
 							<span class="text-sm text-gray-600 dark:text-gray-400">失败调用</span>
-							<span class="font-medium text-red-600 dark:text-red-400">{formatNumber(myStats.failed_calls)}</span>
+							<span class="font-medium text-red-600 dark:text-red-400"
+								>{formatNumber(myStats.failed_calls)}</span
+							>
 						</div>
 						<div class="flex justify-between">
 							<span class="text-sm text-gray-600 dark:text-gray-400">流式调用</span>
-							<span class="font-medium text-gray-900 dark:text-gray-100">{formatNumber(myStats.stream_calls)}</span>
+							<span class="font-medium text-gray-900 dark:text-gray-100"
+								>{formatNumber(myStats.stream_calls)}</span
+							>
 						</div>
 						<div class="flex justify-between">
 							<span class="text-sm text-gray-600 dark:text-gray-400">非流式调用</span>
-							<span class="font-medium text-gray-900 dark:text-gray-100">{formatNumber(myStats.non_stream_calls)}</span>
+							<span class="font-medium text-gray-900 dark:text-gray-100"
+								>{formatNumber(myStats.non_stream_calls)}</span
+							>
 						</div>
 					</div>
 				</Card>
-				
+
 				<!-- Token 使用统计 -->
 				<Card>
-					<Heading tag="h3" class="text-lg font-semibold mb-4">Token 使用</Heading>
+					<Heading tag="h3" class="mb-4 text-lg font-semibold">Token 使用</Heading>
 					<div class="space-y-3">
 						<div class="flex justify-between">
 							<span class="text-sm text-gray-600 dark:text-gray-400">输入 Token</span>
-							<span class="font-medium text-gray-900 dark:text-gray-100">{formatNumber(myStats.total_input_tokens)}</span>
+							<span class="font-medium text-gray-900 dark:text-gray-100"
+								>{formatNumber(myStats.total_input_tokens)}</span
+							>
 						</div>
 						<div class="flex justify-between">
 							<span class="text-sm text-gray-600 dark:text-gray-400">输出 Token</span>
-							<span class="font-medium text-gray-900 dark:text-gray-100">{formatNumber(myStats.total_output_tokens)}</span>
+							<span class="font-medium text-gray-900 dark:text-gray-100"
+								>{formatNumber(myStats.total_output_tokens)}</span
+							>
 						</div>
 						<div class="flex justify-between">
 							<span class="text-sm text-gray-600 dark:text-gray-400">总 Token</span>
-							<span class="font-medium text-blue-600 dark:text-blue-400">{formatNumber(myStats.total_tokens)}</span>
+							<span class="font-medium text-blue-600 dark:text-blue-400"
+								>{formatNumber(myStats.total_tokens)}</span
+							>
 						</div>
 						<div class="flex justify-between">
 							<span class="text-sm text-gray-600 dark:text-gray-400">总费用</span>
-							<span class="font-medium text-purple-600 dark:text-purple-400">¥{myStats.total_cost.toFixed(4)}</span>
+							<span class="font-medium text-purple-600 dark:text-purple-400"
+								>¥{myStats.total_cost.toFixed(4)}</span
+							>
 						</div>
 					</div>
 				</Card>
-				
+
 				<!-- 系统健康状态 -->
 				<Card>
-					<Heading tag="h3" class="text-lg font-semibold mb-4">系统状态</Heading>
+					<Heading tag="h3" class="mb-4 text-lg font-semibold">系统状态</Heading>
 					<div class="space-y-3">
 						{#each systemHealth() as item}
 							<div class="flex items-center justify-between">
@@ -628,9 +636,9 @@
 							</div>
 						{/each}
 					</div>
-					
+
 					{#if lastUpdated}
-						<div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+						<div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
 							<p class="text-xs text-gray-500 dark:text-gray-400">
 								最后更新: {lastUpdated.toLocaleString('zh-CN')}
 							</p>
@@ -642,22 +650,30 @@
 			<!-- 管理员专用区域 -->
 			{#if isAdmin && overviewStats}
 				<Card>
-					<Heading tag="h3" class="text-lg font-semibold mb-4">总体统计（管理员）</Heading>
-					<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+					<Heading tag="h3" class="mb-4 text-lg font-semibold">总体统计（管理员）</Heading>
+					<div class="grid grid-cols-2 gap-4 md:grid-cols-4">
 						<div class="text-center">
-							<div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{formatNumber(overviewStats.total_calls)}</div>
+							<div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+								{formatNumber(overviewStats.total_calls)}
+							</div>
 							<div class="text-sm text-gray-600 dark:text-gray-400">总调用次数</div>
 						</div>
 						<div class="text-center">
-							<div class="text-2xl font-bold text-green-600 dark:text-green-400">{formatNumber(overviewStats.total_tokens)}</div>
+							<div class="text-2xl font-bold text-green-600 dark:text-green-400">
+								{formatNumber(overviewStats.total_tokens)}
+							</div>
 							<div class="text-sm text-gray-600 dark:text-gray-400">总Token</div>
 						</div>
 						<div class="text-center">
-							<div class="text-2xl font-bold text-purple-600 dark:text-purple-400">¥{overviewStats.total_cost.toFixed(2)}</div>
+							<div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+								¥{overviewStats.total_cost.toFixed(2)}
+							</div>
 							<div class="text-sm text-gray-600 dark:text-gray-400">总费用</div>
 						</div>
 						<div class="text-center">
-							<div class="text-2xl font-bold text-orange-600 dark:text-orange-400">{allKeysStats.length}</div>
+							<div class="text-2xl font-bold text-orange-600 dark:text-orange-400">
+								{allKeysStats.length}
+							</div>
 							<div class="text-sm text-gray-600 dark:text-gray-400">活跃用户</div>
 						</div>
 					</div>
@@ -667,23 +683,31 @@
 			<!-- 用户排行榜（管理员专用） -->
 			{#if isAdmin && allKeysStats.length > 0}
 				<Card>
-					<Heading tag="h3" class="text-lg font-semibold mb-4">用户排行榜（按费用）</Heading>
+					<Heading tag="h3" class="mb-4 text-lg font-semibold">用户排行榜（按费用）</Heading>
 					<div class="space-y-3">
 						{#each allKeysStats.slice(0, 10) as keyStats, index}
-							<div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+							<div
+								class="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50"
+							>
 								<div class="flex items-center space-x-3">
-									<div class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-xs font-medium text-blue-600 dark:text-blue-300">
+									<div
+										class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-600 dark:bg-blue-900/50 dark:text-blue-300"
+									>
 										{index + 1}
 									</div>
 									<div>
-										<div class="font-medium text-gray-900 dark:text-gray-100">{keyStats.api_key_name}</div>
+										<div class="font-medium text-gray-900 dark:text-gray-100">
+											{keyStats.api_key_name}
+										</div>
 										<div class="text-sm text-gray-600 dark:text-gray-400">
 											{formatNumber(keyStats.statistics.total_calls)} 次调用
 										</div>
 									</div>
 								</div>
 								<div class="text-right">
-									<div class="font-medium text-gray-900 dark:text-gray-100">¥{keyStats.statistics.total_cost.toFixed(4)}</div>
+									<div class="font-medium text-gray-900 dark:text-gray-100">
+										¥{keyStats.statistics.total_cost.toFixed(4)}
+									</div>
 									<div class="text-sm text-gray-600 dark:text-gray-400">
 										{formatNumber(keyStats.statistics.total_tokens)} tokens
 									</div>
@@ -696,33 +720,33 @@
 
 			<!-- 图表区域 -->
 			{#if chartData()}
-				<div class="grid lg:grid-cols-2 gap-6">
-					<LineChart 
-						title="API调用趋势" 
+				<div class="grid gap-6 lg:grid-cols-2">
+					<LineChart
+						title="API调用趋势"
 						data={chartData()!.apiTrend.data}
 						categories={chartData()!.apiTrend.categories}
 						loading={dataLoading}
 						error={dataError || undefined}
 					/>
-					<BarChart 
-						title="Token使用分布" 
+					<BarChart
+						title="Token使用分布"
 						data={chartData()!.tokenUsage.data}
 						categories={chartData()!.tokenUsage.categories}
 						loading={dataLoading}
 						error={dataError || undefined}
 					/>
 				</div>
-				
-				<div class="grid lg:grid-cols-2 gap-6">
-					<PieChart 
-						title="调用类型分布" 
+
+				<div class="grid gap-6 lg:grid-cols-2">
+					<PieChart
+						title="调用类型分布"
 						data={chartData()!.callTypes.data}
 						labels={chartData()!.callTypes.labels}
 						loading={dataLoading}
 						error={dataError || undefined}
 					/>
-					<BarChart 
-						title="成功失败统计" 
+					<BarChart
+						title="成功失败统计"
 						data={chartData()!.status.data}
 						categories={chartData()!.status.categories}
 						loading={dataLoading}
@@ -731,9 +755,19 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="text-center py-12">
-				<svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+			<div class="py-12 text-center">
+				<svg
+					class="mx-auto mb-4 h-12 w-12 text-gray-400"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+					></path>
 				</svg>
 				<p class="text-sm text-gray-500 dark:text-gray-400">暂无统计数据</p>
 			</div>

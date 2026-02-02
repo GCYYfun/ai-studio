@@ -1,6 +1,6 @@
 // UI Components
-export { default as Input } from './components/ui/Input.svelte';
-export { default as LoadingSpinner } from './components/ui/LoadingSpinner.svelte';
+export { default as Input } from './components/common/Input.svelte';
+export { default as LoadingSpinner } from './components/common/LoadingSpinner.svelte';
 
 // Layout Components
 export { default as Navigation } from './components/Navigation.svelte';
@@ -11,9 +11,10 @@ export { themeStore } from './stores/theme.js';
 export * from './stores/api.js';
 
 // Services
-export { apiClient, api as apiClientMethods } from './services/api.js';
-export { apiService, api } from './services/apiService.js';
-export { apiCache, dataCompatibility, cache } from './services/cache.js';
+export { apiClient, api as apiClientMethods } from './services/core/HttpClient';
+export { dashboardService, dashboard } from './services/dashboard/DashboardService';
+export { playgroundService, playground } from './services/playground/PlaygroundService';
+export { apiCache, cache, dataCompatibility } from './services/core/CacheManager';
 
 // Types
 export type * from './types/index.js';
@@ -21,4 +22,3 @@ export type * from './types/index.js';
 // Utilities
 export * from './utils/constants.js';
 export * from './utils/formatters.js';
-export * from './utils/validators.js';
