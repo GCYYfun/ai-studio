@@ -9,6 +9,7 @@
 		{ href: '/', label: '首页', icon: 'home', description: '欢迎页面和功能概览' },
 		{ href: '/playground', label: 'Playground', icon: 'play', description: '模型测试和交互' },
 		{ href: '/dashboard', label: '仪表板', icon: 'dashboard', description: 'API统计和监控' },
+		{ href: '/interview-sim', label: '面试模拟', icon: 'user-group', description: '智能面试模拟和分析' },
 		{ href: '/api-test', label: 'API测试', icon: 'cog', description: 'API基础设施测试' },
 		{ href: '/test', label: 'UI测试', icon: 'palette', description: 'UI组件和主题测试' }
 	];

@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { API_BASE_URL } from '$lib/utils/constants';
 import type { APIResponse } from '$lib/types';
 
 /**
@@ -271,7 +272,7 @@ export class StatisticsApiClient {
 
 		const endpoint = `/statistics/export?${queryParams}`;
 		
-		const response = await fetch(`http://localhost:8000${endpoint}`, {
+		const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 			headers: this.getHeaders()
 		});
 

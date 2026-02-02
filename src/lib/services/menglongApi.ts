@@ -1,4 +1,5 @@
 import { api } from './api';
+import { API_BASE_URL } from '$lib/utils/constants';
 import type { 
 	ModelInfo, 
 	ChatRequest, 
@@ -42,7 +43,7 @@ export class MengLongAPIService {
 	async getModels(): Promise<APIResponse<ModelInfo[]>> {
 		const headers = this.getHeaders();
 		return api.get<ModelInfo[]>('/menglong/models', {
-			baseURL: 'http://localhost:8000',
+			baseURL: API_BASE_URL,
 			headers
 		});
 	}
@@ -53,7 +54,7 @@ export class MengLongAPIService {
 	async getModel(modelId: string): Promise<APIResponse<ModelInfo>> {
 		const headers = this.getHeaders();
 		return api.get<ModelInfo>(`/menglong/models/${modelId}`, {
-			baseURL: 'http://localhost:8000',
+			baseURL: API_BASE_URL,
 			headers
 		});
 	}
@@ -67,11 +68,19 @@ export class MengLongAPIService {
 			stream: false
 		};
 
+		// Debug: Log the request
+		console.log('[menglongApi.chat] Request:', JSON.stringify(requestWithAuth, null, 2));
+
 		const headers = this.getHeaders();
-		return api.post<ChatResponse>('/menglong/chat', requestWithAuth, {
-			baseURL: 'http://localhost:8000',
+		const response = await api.post<ChatResponse>('/menglong/chat', requestWithAuth, {
+			baseURL: API_BASE_URL,
 			headers
 		});
+
+		// Debug: Log the response
+		console.log('[menglongApi.chat] Response:', JSON.stringify(response, null, 2));
+
+		return response;
 	}
 
 	/**
@@ -83,17 +92,29 @@ export class MengLongAPIService {
 		onComplete?: (usage?: any) => void,
 		onError?: (error: string) => void
 	): Promise<void> {
+		// Create AbortController for timeout
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => {
+			controller.abort();
+			onError?.('Request timeout after 120 seconds');
+		}, 120000); // 120 seconds timeout
+
 		try {
 			const requestWithAuth = {
 				...request,
 				stream: true
 			};
 
-			const response = await fetch('http://localhost:8000/menglong/chat', {
+			console.log('[menglongApi.streamChat] Starting stream request:', JSON.stringify(requestWithAuth, null, 2));
+
+			const response = await fetch(`${API_BASE_URL}/menglong/chat`, {
 				method: 'POST',
 				headers: this.getHeaders(),
-				body: JSON.stringify(requestWithAuth)
+				body: JSON.stringify(requestWithAuth),
+				signal: controller.signal
 			});
+
+			clearTimeout(timeoutId);
 
 			if (!response.ok) {
 				const errorData = await response.json();
@@ -106,10 +127,14 @@ export class MengLongAPIService {
 			}
 
 			const decoder = new TextDecoder();
+			let chunkCount = 0;
 
 			while (true) {
 				const { done, value } = await reader.read();
-				if (done) break;
+				if (done) {
+					console.log('[menglongApi.streamChat] Stream completed, total chunks:', chunkCount);
+					break;
+				}
 
 				const chunk = decoder.decode(value);
 				const lines = chunk.split('\n').filter(line => line.trim());
@@ -119,20 +144,30 @@ export class MengLongAPIService {
 						const data: StreamResponse = JSON.parse(line);
 						
 						if (data.delta?.content) {
+							chunkCount++;
 							onChunk(data.delta.content);
 						}
 
 						if (data.finish_reason && data.usage) {
+							console.log('[menglongApi.streamChat] Stream finished:', data.finish_reason, 'Usage:', data.usage);
 							onComplete?.(data.usage);
 						}
 					} catch (e) {
-						console.warn('Failed to parse stream chunk:', e);
+						console.warn('Failed to parse stream chunk:', e, 'Line:', line);
 					}
 				}
 			}
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-			onError?.(errorMessage);
+			clearTimeout(timeoutId);
+			
+			if (error instanceof Error && error.name === 'AbortError') {
+				console.error('[menglongApi.streamChat] Request aborted (timeout)');
+				onError?.('Request timeout - the server took too long to respond');
+			} else {
+				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+				console.error('[menglongApi.streamChat] Stream error:', errorMessage);
+				onError?.(errorMessage);
+			}
 		}
 	}
 
@@ -142,7 +177,7 @@ export class MengLongAPIService {
 	async checkConnection(): Promise<APIResponse<any>> {
 		const headers = this.getHeaders();
 		return api.get('/menglong/', {
-			baseURL: 'http://localhost:8000',
+			baseURL: API_BASE_URL,
 			headers
 		});
 	}

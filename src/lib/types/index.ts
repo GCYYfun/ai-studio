@@ -251,6 +251,110 @@ export interface PageData {
 	[key: string]: any;
 }
 
+// Interview Simulation types
+export interface InterviewConfig {
+	jd: string;
+	resume: string;
+	transcript?: string;
+	maxTurns: number;
+	interviewerModel: string;
+	candidateModel: string;
+	outputDir: string;
+	temp: boolean;
+}
+
+export interface InterviewMessage {
+	role: 'interviewer' | 'candidate';
+	content: string;
+	name: string;
+	timestamp: string;
+	thinking?: string;
+}
+
+export interface InterviewSession {
+	sessionId: string;
+	status: 'idle' | 'running' | 'paused' | 'completed' | 'error';
+	messages: InterviewMessage[];
+	config: InterviewConfig;
+	startTime?: Date;
+	endTime?: Date;
+	metadata?: {
+		totalTurns: number;
+		endedByInterviewer: boolean;
+	};
+}
+
+export interface TopicAnalysisResult {
+	analysis_date: string;
+	topics: Array<{
+		topic_name: string;
+		dialogue: InterviewMessage[];
+		summary: string;
+		key_points: string[];
+		critical_info: string;
+	}>;
+	overall_summary: string;
+}
+
+export interface DimensionScore {
+	score: number;
+	assessment: string;
+	missing_info: string;
+	confidence_score: number;
+	confidence_justification: string;
+}
+
+export interface EvaluationResult {
+	candidate_name: string;
+	position: string;
+	evaluation_date: string;
+	dimensions: {
+		聪明度: DimensionScore;
+		勤奋度: DimensionScore;
+		目标感: DimensionScore;
+		皮实度: DimensionScore;
+		迎难而上: DimensionScore;
+		客户第一: DimensionScore;
+	};
+	overall_rating: number;
+	overall_confidence: number;
+	strengths: string[];
+	weaknesses: string[];
+	suggested_follow_up_questions: Record<string, string>;
+	summary: string;
+	hiring_recommendation: string;
+}
+
+export interface AnalysisResult {
+	topicAnalysis?: TopicAnalysisResult;
+	evaluation?: EvaluationResult;
+	processId: string;
+	status: 'running' | 'completed' | 'error';
+	timestamp: Date;
+}
+
+export interface UploadedDocument {
+	id: string;
+	name: string;
+	path: string;
+	type: 'jd' | 'resume' | 'conversation' | 'report';
+	size: number;
+	uploadDate: Date;
+	metadata?: any;
+	content?: string;
+}
+
+export interface InterviewRecord {
+	id: string;
+	candidateName: string;
+	position: string;
+	interviewDate: Date;
+	status: 'completed' | 'in_progress' | 'failed';
+	transcriptPath: string;
+	analysisResults?: AnalysisResult;
+	tags?: string[];
+}
+
 // Utility types
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
 
